@@ -50,3 +50,11 @@ opam pin solo5 git@github.com:palainp/mirage-tcpip.git#add-default-route -y
 
 It comes from https://github.com/mirage/mirage-nat.
 The licence is "ISC License".
+
+# DNS resolver
+
+That unikernel resolves names.
+
+It comes from https://github.com/mirage/dns-resolver.
+There is no licence on github so far.
+
