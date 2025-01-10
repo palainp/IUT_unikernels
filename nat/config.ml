@@ -28,8 +28,8 @@ let private_arpv4 = arp private_ethernet
      this is possible, but the code is a bit too convoluted for a good example.
      for now, we'll use statically configured addresses on both interfaces. *)
 
-let public_ipv4 = ipv4_of_dhcp ~group:"public" public_ethernet public_arpv4
-let private_ipv4 = ipv4_of_dhcp ~group:"private" private_ethernet private_arpv4
+let public_ipv4 = ipv4_of_dhcp public_netif public_ethernet public_arpv4
+let private_ipv4 = ipv4_of_dhcp private_netif private_ethernet private_arpv4
 
 let packages = [
   package ~min:"3.0.1" "mirage-nat";
@@ -41,7 +41,7 @@ let packages = [
 (* our unikernel needs to know about physical network, ethernet, arp, and ipv4
    modules for each interface. Even though these modules will be the same for
    both interfaces in our case, we have to pass them separately. *)
-let main = main "Unikernel.Main" ~packages ~runtime_args:[ public_ipv4_gw; ]
+let main = main "Unikernel.Main" ~packages
            (network  @-> network  @->
             ethernet @-> ethernet @->
             arpv4    @-> arpv4    @->
