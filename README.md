@@ -52,7 +52,7 @@ That unikernel gets its IP addresses from DHCP on both interfaces, and NAT avery
 
 It needs a specific branch for mirage-tcpip, you can use it with (before compiling the unikernel):
 ```bash
-opam pin solo5 git@github.com:palainp/mirage-tcpip.git#add-default-route -y
+opam pin git@github.com:palainp/mirage-tcpip.git#add-default-route -y
 ```
 
 It comes from https://github.com/mirage/mirage-nat.
