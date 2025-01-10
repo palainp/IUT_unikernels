@@ -33,8 +33,6 @@ let options =
  * `Time_offset', `Max_datagram; will always override the global (if present).
  *)
 
-let hosts = [router_special_mac ; dns_special_mac]
-
 let router_special_mac = {
    Dhcp_server.Config.hostname = "router";
    options = [
@@ -52,3 +50,5 @@ let dns_special_mac = {
    hw_addr = mac "ca:fe:f0:07:ba:11";
    fixed_addr = Some (ip "10.10.42.53"); (* Must be outside of range. *)
 }
+
+let hosts = [router_special_mac ; dns_special_mac]
