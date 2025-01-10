@@ -30,6 +30,13 @@ For the time being, the hardcoded addresses of the router and the DNS server are
 It comes from https://github.com/mirage/mirage-skeleton.
 The licence is "The Unlicense".
 
+# Website
+
+That unikernel serves a static website. The content should be placed in the htdocs directory before compilation.
+
+It comes from https://github.com/mirage/mirage-skeleton.
+The licence is "The Unlicense".
+
 # Firewall
 
 That unikernel forward packets from one interface to the other. It also filter packets based on a ruleset. Modify `simple-fw/rules.ml` to match your needs.
