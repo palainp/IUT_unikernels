@@ -4,6 +4,8 @@ This repository groups several unikernels I use on our Univeristy's KVM cyberran
 
 ## Compilation and image creation
 
+The compilation environnement should setted up prior any instructions here. You can easily set that up by installing a recent opam version (https://opam.ocaml.org/doc/Install.html), and then running `opam install mirage`.
+
 I create qcow2 images with `image/create_img.sh` likewise (`UNIKERNEL` stands for both the directory name and the producted unikernel name, which should be the case in this repository):
 ```bash
 export UNIKERNEL=<unikernel>
@@ -14,6 +16,8 @@ bash create_img.sh $UNIKERNEL
 ```
 
 This creates a 30MB disk image that can be directly uploaded on the cyberrange, I usually set the unikernels with 32MB of RAM, and all network interfaces should be configured as virtio interfaces. The icon used for those unikernels is provided in this repository.
+
+You can use the `build-all.sh` script to build each unikernels and create all images. If it fails in the image creation, you likely will not be able to restart it unless you run `sudo umount /mnt && sudo qemu-nbd --disconnect /dev/nbd0`.
 
 ## Note on serial outputs
 
@@ -41,7 +45,7 @@ The licence is "The Unlicense".
 
 That unikernel forward packets from one interface to the other. It also filter packets based on a ruleset. Modify `simple-fw/rules.ml` to match your needs. It doesn't act as a firewall-router.
 
-DO NOT USE THIS UNIKERNEL IN PRODUCTION : there is a way, described in `simple-fw/rules.ml` as python oneliner, to update the rules at runtime without any authentification.
+DO NOT USE THIS UNIKERNEL IN PRODUCTION: there is a way, described in `simple-fw/rules.ml` as python oneliner, to update the rules at runtime without any authentification.
 
 It comes from https://github.com/palainp/simple-fw.
 The licence is "BSD-2-Clause".
