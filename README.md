@@ -39,7 +39,7 @@ The licence is "The Unlicense".
 
 # Firewall
 
-That unikernel forward packets from one interface to the other. It also filter packets based on a ruleset. Modify `simple-fw/rules.ml` to match your needs.
+That unikernel forward packets from one interface to the other. It also filter packets based on a ruleset. Modify `simple-fw/rules.ml` to match your needs. It doesn't act as a firewall-router.
 
 DO NOT USE THIS UNIKERNEL IN PRODUCTION : there is a way, described in `simple-fw/rules.ml` as python oneliner, to update the rules at runtime without any authentification.
 
