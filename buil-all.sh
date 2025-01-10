@@ -12,6 +12,6 @@ for UNIKERNEL in dhcp website simple-fw nat dns-resolver ; do
     printf -- "---\n- Image creation for %s\n---\n" $UNIKERNEL
     cd ../image
     bash create_img.sh $UNIKERNEL
-    cd -
+    cd ..
 done
 
