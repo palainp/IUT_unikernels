@@ -25,6 +25,7 @@ opam pin solo5 git@github.com:palainp/solo5.git#vga -y
 # DHCP
 
 That unikernel serves IP addresses for a configured network. Modify `dhcp/dhcp_config.ml` to change the network.
+For the time being, the hardcoded addresses of the router and the DNS server are distributed for the virtual machines with MAC addresses `ca:fe:ba:5e:ba:11` and `ca:fe:f0:07:ba:11` respectively.
 
 It comes from https://github.com/mirage/mirage-skeleton.
 The licence is "The Unlicense".

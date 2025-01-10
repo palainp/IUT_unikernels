@@ -6,17 +6,17 @@ let mac = Macaddr.of_string_exn
 let hostname = "charrua-dhcp-server"
 let default_lease_time = 60 * 60 * 1 (* 1 hour *)
 let max_lease_time = 60 * 60 * 24 (* A day *)
-let ip_address = ip "10.0.42.5"
-let network = net "10.0.42.0/24"
-let range = Some (ip "10.0.42.100", ip "10.0.42.200")
+let ip_address = ip "10.10.42.5"
+let network = net "10.10.42.0/24"
+let range = Some (ip "10.10.42.100", ip "10.10.42.200")
 
 (* List of dhcp options to be advertised *)
 let options =
   [
     (* Routers is a list of default routers *)
-    Routers [ ip "10.0.42.254" ];
+    Routers [ ip "10.10.42.254" ];
     (* Dns_servers is a list of dns servers *)
-    Dns_servers [ ip "10.0.42.53" (* ip "192.168.1.6" *) ];
+    Dns_servers [ ip "10.10.42.53" (* ip "192.168.1.6" *) ];
     (* Ntp_servers is a list of ntp servers, Time_servers (old protocol) is also available *)
     (* Ntp_servers [ip "192.168.1.5"]; *)
     Domain_name "pampas";
@@ -33,24 +33,22 @@ let options =
  * `Time_offset', `Max_datagram; will always override the global (if present).
  *)
 
-let hosts = []
+let hosts = [router_special_mac ; dns_special_mac]
 
-(* No static host so far, but you can add some...
-let static_host_1 = {
-   Dhcp_server.Config.hostname = "Static host 1";
+let router_special_mac = {
+   Dhcp_server.Config.hostname = "router";
    options = [
-     Routers [ip "192.168.1.4"];
+     (* Routers [ip "10.10.42.254"]; *)
    ];
-   hw_addr = mac "7a:bb:c1:aa:50:01";
-   fixed_addr = Some (ip "192.168.1.151"); (* Must be outside of range. *)
+   hw_addr = mac "ca:fe:ba:5e:ba:11";
+   fixed_addr = Some (ip "10.10.42.254"); (* Must be outside of range. *)
 }
 
-let static_host_2 = {
-   Dhcp_server.Config.hostname = "Static host 2";
-   options = [];
-   hw_addr = mac "7a:bb:c1:aa:50:02";
-   fixed_addr = Some (ip "192.168.1.152"); (* Must be outside of range. *)
+let dns_special_mac = {
+   Dhcp_server.Config.hostname = "dns";
+   options = [
+     Routers [ip "10.10.42.254"];
+   ];
+   hw_addr = mac "ca:fe:f0:07:ba:11";
+   fixed_addr = Some (ip "10.10.42.53"); (* Must be outside of range. *)
 }
-
-let hosts = [static_host_1;static_host_2]
-*)
