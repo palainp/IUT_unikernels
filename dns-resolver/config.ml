@@ -15,7 +15,6 @@ let dns_handler =
     ]
   in
    main
-    ~runtime_args:[ with_dnssec; ]
     ~packages
     "Unikernel.Main" (random @-> pclock @-> mclock @-> time @-> stackv4v6 @-> job)
 
