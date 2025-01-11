@@ -5,7 +5,7 @@ set -e
 opam pin | grep solo5 || opam opam pin solo5 git@github.com:palainp/solo5.git#vga -y
 opam pin | grep tcpip || opam pin git@github.com:palainp/mirage-tcpip.git#add-default-route -y
 
-# unikernels that relies on DHCP for interface configuration (via the generic_stackv4v6 call)
+# unikernel that relies on DHCP for interface configuration (via the generic_stackv4v6 call)
 for UNIKERNEL in website dns-resolver ; do
     printf -- "---\n- Compilation of %s\n---\n" $UNIKERNEL
     cd $UNIKERNEL
@@ -16,7 +16,7 @@ for UNIKERNEL in website dns-resolver ; do
     cd ..
 done
 
-# special net unikernel (not using DHCP for interface configuration, directly specify it)
+# special net unikernel (not using DHCP for interface configuration, directly specifies it)
 for UNIKERNEL in dhcp simple-fw nat ; do
     printf -- "---\n- Compilation of %s\n---\n" $UNIKERNEL
     cd $UNIKERNEL

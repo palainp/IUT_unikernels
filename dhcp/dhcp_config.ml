@@ -36,7 +36,8 @@ let options =
 let router_special_mac = {
    Dhcp_server.Config.hostname = "router";
    options = [
-     (* Routers [ip "10.10.42.254"]; *)
+     (* Routers [ ip "10.10.42.254"]; *)
+     (* Dns_servers [ ip "10.10.42.53" ]; *)
    ];
    hw_addr = mac "ca:fe:ba:5e:ba:11";
    fixed_addr = Some (ip "10.10.42.254"); (* Must be outside of range. *)
@@ -45,10 +46,43 @@ let router_special_mac = {
 let dns_special_mac = {
    Dhcp_server.Config.hostname = "dns";
    options = [
-     Routers [ip "10.10.42.254"];
    ];
    hw_addr = mac "ca:fe:f0:07:ba:11";
    fixed_addr = Some (ip "10.10.42.53"); (* Must be outside of range. *)
 }
 
-let hosts = [router_special_mac ; dns_special_mac]
+(* --- *)
+
+let special_host1 = {
+   Dhcp_server.Config.hostname = "special1";
+   options = [
+   ];
+   hw_addr = mac "ca:fe:00:00:00:01";
+   fixed_addr = Some (ip "10.10.42.1"); (* Must be outside of range. *)
+}
+
+let special_host2 = {
+   Dhcp_server.Config.hostname = "special2";
+   options = [
+   ];
+   hw_addr = mac "ca:fe:00:00:00:02";
+   fixed_addr = Some (ip "10.10.42.2"); (* Must be outside of range. *)
+}
+
+let special_host3 = {
+   Dhcp_server.Config.hostname = "special3";
+   options = [
+   ];
+   hw_addr = mac "ca:fe:00:00:00:03";
+   fixed_addr = Some (ip "10.10.42.3"); (* Must be outside of range. *)
+}
+
+let special_host4 = {
+   Dhcp_server.Config.hostname = "special4";
+   options = [
+   ];
+   hw_addr = mac "ca:fe:00:00:00:04";
+   fixed_addr = Some (ip "10.10.42.4"); (* Must be outside of range. *)
+}
+
+let hosts = [router_special_mac ; dns_special_mac ; special_host1 ; special_host2 ; special_host3 ; special_host4]
