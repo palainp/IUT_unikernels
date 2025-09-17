@@ -1,4 +1,4 @@
-(* mirage >= 4.7.0 & < 4.9.0 *)
+(* mirage >= 4.10.1 & < 4.11.0 *)
 open Mirage
 
 (* we need two network interfaces: a public side and a private side *)
@@ -23,11 +23,6 @@ let private_ethernet = ethif private_netif
 let public_arpv4 = arp public_ethernet
 let private_arpv4 = arp private_ethernet
 
-(* finally, use statically configured (at build or runtime) ipv4 addresses.
-   (you might want to use dhcp to configure the address on the public interface.
-     this is possible, but the code is a bit too convoluted for a good example.
-     for now, we'll use statically configured addresses on both interfaces. *)
-
 let public_ipv4 = ipv4_of_dhcp public_netif public_ethernet public_arpv4
 let private_ipv4 = ipv4_of_dhcp private_netif private_ethernet private_arpv4
 
@@ -45,8 +40,7 @@ let main = main "Unikernel.Main" ~packages
            (network  @-> network  @->
             ethernet @-> ethernet @->
             arpv4    @-> arpv4    @->
-            ipv4     @-> ipv4     @->
-            random   @-> mclock   @-> job)
+            ipv4     @-> ipv4     @-> job)
 
 (* we need to pass each of the network-related impls we've made to the
    unikernel, so that it can start the appropriate listeners. *)
@@ -55,5 +49,4 @@ let () = register "nat" [ main
                           $ public_ethernet $ private_ethernet
                           $ public_arpv4    $ private_arpv4
                           $ public_ipv4     $ private_ipv4
-                          $ default_random  $ default_monotonic_clock
                         ]

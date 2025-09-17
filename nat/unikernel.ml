@@ -9,7 +9,6 @@ module Main
     (Public_arpv4 : Arp.S) (Private_arpv4 : Arp.S)
     (Public_ipv4 : Tcpip.Ip.S with type ipaddr = Ipaddr.V4.t and type prefix = Ipaddr.V4.Prefix.t)
     (Private_ipv4 : Tcpip.Ip.S with type ipaddr = Ipaddr.V4.t and type prefix = Ipaddr.V4.Prefix.t)
-    (Random : Mirage_crypto_rng_mirage.S) (Clock : Mirage_clock.MCLOCK)
   = struct
 
   (* Use a NAT table implementation which expires entries in response
@@ -21,92 +20,78 @@ module Main
   let log = Logs.Src.create "nat" ~doc:"NAT device"
   module Log = (val Logs.src_log log : Logs.LOG)
 
-  (* We'll need to make routing decisions on both the public and private
-     interfaces. *)
-  module Public_routing = Routing.Make(Log)(Public_arpv4)
-  module Private_routing = Routing.Make(Log)(Private_arpv4)
-
   (* the specific impls we're using show up as arguments to start. *)
   let start public_netif private_netif
             public_ethernet private_ethernet
             public_arpv4 private_arpv4
-            public_ipv4 private_ipv4 _rng ()
-            =
+            public_leasev4 private_leasev4 =
 
-    (* if writing a packet into a given memory buffer failed,
-       log the failure, pass information on how much was written
-       to the underlying function (none), and continue.
-       This is a convenience function for later calls to `write`. *)
-    let log_write_error e =
-      Log.err (fun f -> f "Failed to write packet into given buffer: %a"
-                  Nat_packet.pp_error e);
-      0
+    (* Helpers functions *)
+    let get_dst (`IPv4 (packet, _) : Nat_packet.t) = packet.Ipv4_packet.dst in
+
+    let try_decompose cache ~now f packet =
+      let cache', r = Nat_packet.of_ipv4_packet !cache ~now:(now ()) packet in
+      cache := cache';
+      match r with
+      | Error e ->
+        Logs.err (fun m -> m "of_ipv4_packet error %a" Nat_packet.pp_error e);
+        Lwt.return_unit
+      | Ok Some packet -> f packet
+      | Ok None -> Lwt.return_unit
     in
 
-    (* in order to successfully translate, we have to send the packets we've
-       changed.  define some convenience functions for sending via public and
-       private interfaces so we don't have to think about ARP later, when we'll 
-       be trying to think hard about translations. *)
-    let output_public packet =
-      let gateway = Public_ipv4.default_route public_ipv4 in
-      (* For IPv4 only one prefix can be configured so the list is always of length 1 *)
-      let network = List.hd (Public_ipv4.configured_ips public_ipv4) in
-      Public_routing.destination_mac network gateway public_arpv4 (Util.get_dst packet) >>= function
-      | Error `Local ->
-        Log.debug (fun f -> f "Could not send a packet from the public interface to the local network,\
-                                as a failure occurred on the ARP layer");
-        Lwt.return_unit
-      | Error `Gateway ->
-        Log.debug (fun f -> f "Could not send a packet from the public interface to the wider network,\
-                                as a failure occurred on the ARP layer");
-        Lwt.return_unit
-      | Ok destination ->
-        let outs = ref [] in
-        Public_ethernet.write public_ethernet destination `IPv4
-          (fun b -> match Nat_packet.into_cstruct packet b with
-             | Error e -> log_write_error e
-               | Ok (y, frags) -> outs := frags ; y) >>= function
-        | Error e ->
-          Log.err (fun f -> f "Failed to send packet from public interface: %a"
-                        Public_ethernet.pp_error e);
-          Lwt.return_unit
-        | Ok () ->
-          Lwt_list.iter_s (fun f ->
-              let size = Cstruct.length f in
-              Public_ethernet.write public_ethernet destination `IPv4 ~size
-                (fun b -> Cstruct.blit f 0 b 0 size ; size) >|= function
-              | Error e -> Log.err (fun f -> f "Failed to send packet from public interface: %a"
-                                       Public_ethernet.pp_error e)
-              | Ok () -> ()) !outs
-    in
-
-    let output_private packet =
-      (* For IPv4 only one prefix can be configured so the list is always of length 1 *)
-      let network = List.hd (Private_ipv4.configured_ips private_ipv4) in
-      Private_routing.destination_mac network None private_arpv4 (Util.get_dst packet) >>= function
-      | Error _ ->
-        Log.debug (fun f -> f "Could not send a packet from the private interface to the local network,\
-                                as a failure occurred on the ARP layer");
-        Lwt.return_unit
-      | Ok destination ->
-        let outs = ref [] in
-        Private_ethernet.write private_ethernet destination `IPv4
-          (fun b ->
-             match Nat_packet.into_cstruct packet b with
-             | Error e -> log_write_error e
-             | Ok (y, frags) -> outs := frags ; y) >>= function
-        | Error e ->
-          Log.debug (fun f -> f "Failed to send packet from private interface: %a"
-                        Private_ethernet.pp_error e);
-          Lwt.return_unit
-        | Ok () ->
-          Lwt_list.iter_s (fun f ->
-              let size = Cstruct.length f in
-              Private_ethernet.write private_ethernet destination `IPv4 ~size
-                (fun b -> Cstruct.blit f 0 b 0 size ; size) >|= function
-              | Error e -> Log.err (fun f -> f "Failed to send packet from public interface: %a"
-                                       Private_ethernet.pp_error e)
-              | Ok () -> ()) !outs
+    let payload_to_buf pkt =
+      match pkt with
+      | `IPv4 (ip_hdr, p) ->
+        let src = ip_hdr.Ipv4_packet.src and dst = ip_hdr.dst in
+        match p with
+        | `ICMP (icmp_header, payload) -> begin
+            let payload_start = Icmpv4_wire.sizeof_icmpv4 in
+            let buf = Cstruct.create (payload_start + Cstruct.length payload) in
+            Cstruct.blit payload 0 buf payload_start (Cstruct.length payload);
+            match Icmpv4_packet.Marshal.into_cstruct icmp_header ~payload buf with
+            | Error s ->
+              Logs.warn (fun m -> m "Error writing ICMPv4 packet: %s" s);
+              Error ()
+            | Ok () -> Ok (buf, `ICMP, ip_hdr)
+          end
+        | `UDP (udp_header, udp_payload) -> begin
+            let payload_start = Udp_wire.sizeof_udp in
+            let buf = Cstruct.create (payload_start + Cstruct.length udp_payload) in
+            Cstruct.blit udp_payload 0 buf payload_start (Cstruct.length udp_payload);
+            let pseudoheader =
+              Ipv4_packet.Marshal.pseudoheader ~src ~dst ~proto:`UDP
+                (Cstruct.length udp_payload + Udp_wire.sizeof_udp)
+            in
+            match Udp_packet.Marshal.into_cstruct
+                    ~pseudoheader ~payload:udp_payload udp_header buf
+            with
+            | Error s ->
+              Logs.warn (fun m -> m "Error writing UDP packet: %s" s);
+              Error ()
+            | Ok () -> Ok (buf, `UDP, ip_hdr)
+          end
+        | `TCP (tcp_header, tcp_payload) -> begin
+            let payload_start =
+              let options_length = Tcp.Options.lenv tcp_header.Tcp.Tcp_packet.options in
+              (Tcp.Tcp_wire.sizeof_tcp + options_length)
+            in
+            let buf = Cstruct.create (payload_start + Cstruct.length tcp_payload) in
+            Cstruct.blit tcp_payload 0 buf payload_start (Cstruct.length tcp_payload);
+            (* and now transport header *)
+            let pseudoheader =
+              Ipv4_packet.Marshal.pseudoheader ~src ~dst ~proto:`TCP
+                (Cstruct.length tcp_payload + payload_start)
+            in
+            match Tcp.Tcp_packet.Marshal.into_cstruct
+                    ~pseudoheader tcp_header
+                    ~payload:tcp_payload buf
+            with
+            | Error s ->
+              Logs.warn (fun m -> m "Error writing TCP packet: %s" s);
+              Error ()
+            | Ok _ -> Ok (buf, `TCP, ip_hdr)
+          end
     in
 
     (* when we see packets on the private interface,
@@ -118,26 +103,36 @@ module Main
     let rec ingest_private table packet =
       Log.debug (fun f -> f "Private interface got a packet: %a" Nat_packet.pp packet);
       match Nat.translate table packet with
-      | Ok packet -> output_public packet
+      | Ok packet ->
+        begin match payload_to_buf packet with
+        | Ok (buf, proto, ip_hdr) ->
+          (Public_ipv4.write public_leasev4 (get_dst packet) proto (fun _ -> 0) [buf]
+           >|= function
+           | Ok () -> ()
+           | Error _e ->
+             (* could send back host unreachable if this was an arp timeout *)
+             (* Logs.err (fun m -> m "error %a while forwarding %a"
+                Public_ipv4.pp_error e Ipv4_packet.pp hdr)) *)
+             ())
+        | Error () -> Lwt.return_unit
+        end
       | Error `TTL_exceeded ->
         (* TODO: if we were really keen, we'd send them an ICMP message back. *)
         (* But for now, let's just drop the packet. *)
         Log.debug (fun f -> f "TTL exceeded for a packet on the private interface");
         Lwt.return_unit
       | Error `Untranslated ->
-        add_rule table packet
-    and add_rule table packet =
-      (* In order to add a source NAT rule, we have to come up with an unused
-         source port to use for disambiguating return traffic. *)
-      let public_ip = Public_ipv4.src public_ipv4 ~dst:Util.(get_dst packet) in
-      (* TODO: this may generate low-numbered source ports, which may be treated
-         with suspicion by other nodes on the network *)
-      let port_gen () = Some (String.get_uint16_be (Random.generate 2) 0) in
-      match Nat.add table packet public_ip port_gen `NAT with
-      | Error e ->
-        Log.debug (fun f -> f "Failed to add a NAT rule: %a" Mirage_nat.pp_error e);
-        Lwt.return_unit
-      | Ok () -> ingest_private table packet
+        (* In order to add a source NAT rule, we have to come up with an unused
+           source port to use for disambiguating return traffic. *)
+        let public_ip = Public_ipv4.src public_leasev4 ~dst:(get_dst packet) in
+        (* TODO: this may generate low-numbered source ports, which may be treated
+           with suspicion by other nodes on the network *)
+        let port_gen () = Some (Randomconv.int16 Mirage_crypto_rng.generate) in
+        match Nat.add table packet public_ip port_gen `NAT with
+        | Error e ->
+          Log.debug (fun f -> f "Failed to add a NAT rule: %a" Mirage_nat.pp_error e);
+          Lwt.return_unit
+        | Ok () -> ingest_private table packet
     in
 
     (* when we see packets on the public interface,
@@ -146,7 +141,19 @@ module Main
        we shouldn't make new rules from public traffic. *)
     let ingest_public table packet =
       match Nat.translate table packet with
-      | Ok packet -> output_private packet
+      | Ok packet ->
+        begin match payload_to_buf packet with
+        | Ok (buf, proto, ip_hdr) ->
+          (Private_ipv4.write private_leasev4 (get_dst packet) proto (fun _ -> 0) [buf]
+           >|= function
+           | Ok () -> ()
+           | Error _e ->
+             (* could send back host unreachable if this was an arp timeout *)
+             (* Logs.err (fun m -> m "error %a while forwarding %a"
+                Private_ipv4.pp_error e Ipv4_packet.pp hdr)) *)
+             ())
+        | Error () -> Lwt.return_unit
+        end
       | Error `TTL_exceeded ->
         Log.debug (fun f -> f "TTL exceeded for a packet on the public interface");
         Lwt.return_unit
@@ -170,7 +177,7 @@ module Main
       and input =
         Public_ethernet.input
           ~arpv4:(Public_arpv4.input public_arpv4)
-          ~ipv4:(Util.try_decompose cache ~now:Clock.elapsed_ns (ingest_public table))
+          ~ipv4:(try_decompose cache ~now:Mirage_mtime.elapsed_ns (ingest_public table))
           ~ipv6:(fun _ -> Lwt.return_unit)
           public_ethernet
       in
@@ -187,7 +194,7 @@ module Main
       and input =
         Private_ethernet.input
           ~arpv4:(Private_arpv4.input private_arpv4)
-          ~ipv4:(Util.try_decompose cache ~now:Clock.elapsed_ns (ingest_private table))
+          ~ipv4:(try_decompose cache ~now:Mirage_mtime.elapsed_ns (ingest_private table))
           ~ipv6:(fun _ -> Lwt.return_unit)
           private_ethernet
       in
