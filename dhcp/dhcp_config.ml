@@ -6,17 +6,17 @@ let mac = Macaddr.of_string_exn
 let hostname = "charrua-dhcp-server"
 let default_lease_time = 60 * 60 * 1 (* 1 hour *)
 let max_lease_time = 60 * 60 * 24 (* A day *)
-let ip_address = ip "10.10.42.5"
-let network = net "10.10.42.0/24"
-let range = Some (ip "10.10.42.100", ip "10.10.42.200")
+let ip_address = ip "192.168.59.253"
+let network = net "10.58.69.0/24"
+let range = Some (ip "10.58.69.100", ip "10.58.69.200")
 
 (* List of dhcp options to be advertised *)
 let options =
   [
     (* Routers is a list of default routers *)
-    Routers [ ip "10.10.42.254" ];
+    Routers [ ip "10.58.69.254" ];
     (* Dns_servers is a list of dns servers *)
-    Dns_servers [ ip "10.10.42.53" (* ip "192.168.1.6" *) ];
+    Dns_servers [ ip "192.168.59.12" (* ip "192.168.1.6" *) ];
     (* Ntp_servers is a list of ntp servers, Time_servers (old protocol) is also available *)
     (* Ntp_servers [ip "192.168.1.5"]; *)
     Domain_name "pampas";
@@ -33,6 +33,7 @@ let options =
  * `Time_offset', `Max_datagram; will always override the global (if present).
  *)
 
+(*
 let router_special_mac = {
    Dhcp_server.Config.hostname = "router";
    options = [
@@ -86,3 +87,5 @@ let special_host4 = {
 }
 
 let hosts = [router_special_mac ; dns_special_mac ; special_host1 ; special_host2 ; special_host3 ; special_host4]
+*)
+let hosts = []
