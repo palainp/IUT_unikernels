@@ -54,12 +54,7 @@ The licence is "BSD-2-Clause".
 
 That unikernel gets its IP addresses from DHCP on both interfaces, and NAT averything from private interface (the second interface) to the public interface (the first one). Ensure you connect the interfaces as expected otherwise it won't work fine.
 
-It needs a specific branch for mirage-tcpip, you can use it with (before compiling the unikernel):
-```bash
-opam pin git@github.com:palainp/mirage-tcpip.git#add-default-route -y
-```
-
-It comes from https://github.com/mirage/mirage-nat.
+It is adapted from https://github.com/mirage/mirage-nat.
 The licence is "ISC License".
 
 # DNS resolver
