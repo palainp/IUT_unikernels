@@ -106,7 +106,7 @@ module Main
       | Ok packet ->
         begin match payload_to_buf packet with
         | Ok (buf, proto, ip_hdr) ->
-          (Public_ipv4.write public_leasev4 (get_dst packet) proto (fun _ -> 0) [buf]
+          (Public_ipv4.write public_leasev4 ip_hdr.dst proto (fun _ -> 0) [buf]
            >|= function
            | Ok () -> ()
            | Error _e ->
@@ -144,7 +144,7 @@ module Main
       | Ok packet ->
         begin match payload_to_buf packet with
         | Ok (buf, proto, ip_hdr) ->
-          (Private_ipv4.write private_leasev4 (get_dst packet) proto (fun _ -> 0) [buf]
+          (Private_ipv4.write private_leasev4 ~src:ip_hdr.src ip_hdr.dst proto (fun _ -> 0) [buf]
            >|= function
            | Ok () -> ()
            | Error _e ->
